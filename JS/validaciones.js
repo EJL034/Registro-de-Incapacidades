@@ -1,116 +1,113 @@
-// js/validaciones.js
+/**
+ * Módulo de Validaciones - Registro de Incapacidades
+ * Archivo: js/validaciones.js
+ */
 
-// Calcular días de diferencia entre fecha inicio y fin
-function calcularDiasIncapacidad(fechaInicioStr, fechaFinStr) {
-  if (!fechaInicioStr || !fechaFinStr) {
-    return { valido: false, mensaje: 'Ambas fechas son requeridas', diasCalculados: 0 };
-  }
+// 1. Calcular días de incapacidad entre fecha inicio y fecha fin
+function calcularDiasIncapacidad(fechaInicio, fechaFin) {
+    if (!fechaInicio || !fechaFin) return 0;
 
-  const inicio = new Date(fechaInicioStr);
-  const fin = new Date(fechaFinStr);
+    const inicio = new Date(fechaInicio);
+    const fin = new Date(fechaFin);
 
-  if (isNaN(inicio.getTime()) || isNaN(fin.getTime())) {
-    return { valido: false, mensaje: 'Formato de fecha inválido', diasCalculados: 0 };
-  }
+    if (isNaN(inicio.getTime()) || isNaN(fin.getTime()) || fin < inicio) {
+        return 0;
+    }
 
-  if (fin < inicio) {
-    return { valido: false, mensaje: 'La fecha final no puede ser anterior a la de inicio', diasCalculados: 0 };
-  }
-
-  // Cálculo en milisegundos a días (incluyendo el día de inicio)
-  const diffTime = Math.abs(fin - inicio);
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-
-  return { valido: true, mensaje: 'Cálculo correcto', diasCalculados: diffDays };
+    // Diferencia en milisegundos convertida a días (+1 para incluir el día inicial)
+    const diffTiempo = Math.abs(fin - inicio);
+    return Math.ceil(diffTiempo / (1000 * 60 * 60 * 24)) + 1;
 }
 
-// Validar que el número de boleta no esté repetido
-function validarBoletaUnica(numBoleta, idExcluir = null) {
-  if (!numBoleta || numBoleta.trim() === '') {
-    return { valido: false, mensaje: 'El número de boleta es obligatorio' };
-  }
+// 2. Validar que el número de boleta no esté duplicado en el sistema
+function validarBoletaUnica(numBoleta, listaIncapacidades = []) {
+    if (!numBoleta) return false;
 
-  const lista = obtenerIncapacidades();
-  const existe = lista.some(item => item.numBoleta.toLowerCase() === numBoleta.trim().toLowerCase() && item.id !== idExcluir);
+    const existe = listaIncapacidades.some(
+        item => item.numBoleta?.toString().toLowerCase().trim() === numBoleta.toString().toLowerCase().trim()
+    );
 
-  if (existe) {
-    return { valido: false, mensaje: 'El número de boleta ya existe en el sistema' };
-  }
-
-  return { valido: true, mensaje: 'Boleta disponible' };
+    // Retorna true si es única (NO existe previamente)
+    return !existe;
 }
 
-// Validar formato de cédula (ej. XXX-XXXXXX-X o 9 dígitos)
-function validarFormatoCedula(cedula) {
-  if (!cedula) return false;
-  const regexCedula = /^[0-9]{3}-[0-9]{6}-[0-9]{1}$|^[0-9]{9,12}$/;
-  return regexCedula.test(cedula.trim());
+// 3. Validar formato y peso del archivo adjunto
+function validarFormatoArchivo(archivo, tamanoMaximoMB = 5) {
+    if (!archivo) return { valido: false, mensaje: "Debe adjuntar un archivo." };
+
+    const extensionesPermitidas = ['pdf', 'jpg', 'jpeg', 'png'];
+    const extension = archivo.name.split('.').pop().toLowerCase();
+
+    if (!extensionesPermitidas.includes(extension)) {
+        return { valido: false, mensaje: "Formato no permitido. Solo PDF, JPG o PNG." };
+    }
+
+    const maxBytes = tamanoMaximoMB * 1024 * 1024;
+    if (archivo.size > maxBytes) {
+        return { valido: false, mensaje: `El archivo supera el tamaño máximo de ${tamanoMaximoMB}MB.` };
+    }
+
+    return { valido: true, mensaje: "Archivo válido." };
 }
 
-// Validar formato de archivo adjunto (PDF o Imágenes)
-function validarFormatoArchivo(archivo) {
-  if (!archivo) {
-    return { valido: false, mensaje: 'Debe adjuntar un archivo' };
-  }
+// 4. Validación integral de todo el formulario
+function validarFormularioRegistro(datos, listaExistente = []) {
+    const errores = [];
 
-  const tiposPermitidos = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
-  if (!tiposPermitidos.includes(archivo.type)) {
-    return { valido: false, mensaje: 'Tipo de archivo no permitido. Solo PDF o Imágenes (JPG/PNG).' };
-  }
+    // Validar boleta vacía y formato básico
+    if (!datos.numBoleta || datos.numBoleta.trim() === '') {
+        errores.push("El número de boleta es obligatorio.");
+    } else if (!validarBoletaUnica(datos.numBoleta, listaExistente)) {
+        errores.push("El número de boleta ya está registrado en el sistema.");
+    }
 
-  // Límite de tamaño: 5 MB
-  const maxBytes = 5 * 1024 * 1024;
-  if (archivo.size > maxBytes) {
-    return { valido: false, mensaje: 'El archivo excede el tamaño máximo permitido de 5MB.' };
-  }
+    // Validar Cédula
+    if (!datos.cedula || !/^\d{9,12}$/.test(datos.cedula.replace(/[-\s]/g, ''))) {
+        errores.push("La cédula debe contener entre 9 y 12 dígitos.");
+    }
 
-  return { valido: true, mensaje: 'Archivo válido' };
+    // Validar Nombre
+    if (!datos.nombre || datos.nombre.trim().length < 3) {
+        errores.push("El nombre completo debe tener al menos 3 caracteres.");
+    }
+
+    // Validar Departamento
+    if (!datos.departamento || datos.departamento.trim() === '') {
+        errores.push("Debe seleccionar un departamento.");
+    }
+
+    // Validar Tipo de Incapacidad
+    if (!datos.tipoIncapacidad || datos.tipoIncapacidad.trim() === '') {
+        errores.push("Debe seleccionar el tipo de incapacidad.");
+    }
+
+    // Validar Fechas y Días
+    const dias = calcularDiasIncapacidad(datos.fechaInicio, datos.fechaFin);
+    if (dias <= 0) {
+        errores.push("La fecha de fin no puede ser anterior a la fecha de inicio.");
+    }
+
+    // Validar Archivo (si viene en los datos)
+    if (datos.archivo) {
+        const resArchivo = validarFormatoArchivo(datos.archivo);
+        if (!resArchivo.valido) {
+            errores.push(resArchivo.mensaje);
+        }
+    }
+
+    return {
+        esValido: errores.length === 0,
+        errores: errores,
+        diasCalculados: dias
+    };
 }
 
-// Normalizar y limpiar datos de entradas
-function normalizarDatos(datos) {
-  return {
-    ...datos,
-    nombre: datos.nombre ? datos.nombre.trim() : '',
-    cedula: datos.cedula ? datos.cedula.trim() : '',
-    numBoleta: datos.numBoleta ? datos.numBoleta.trim() : '',
-    departamento: datos.departamento ? datos.departamento.trim() : '',
-    tipo: datos.tipo ? datos.tipo.trim() : ''
-  };
-}
-
-// Validar formulario completo de registro
-function validarFormularioRegistro(datos) {
-  const errores = [];
-
-  if (!datos.nombre || datos.nombre.length < 3) {
-    errores.push('El nombre debe tener al menos 3 caracteres.');
-  }
-
-  if (!validarFormatoCedula(datos.cedula)) {
-    errores.push('El formato de la cédula es inválido.');
-  }
-
-  if (!datos.departamento) {
-    errores.push('Debe seleccionar un departamento.');
-  }
-
-  if (!datos.tipo) {
-    errores.push('Debe seleccionar el tipo de incapacidad.');
-  }
-
-  const resBoleta = validarBoletaUnica(datos.numBoleta, datos.id || null);
-  if (!resBoleta.valido) {
-    errores.push(resBoleta.mensaje);
-  }
-
-  const resDias = calcularDiasIncapacidad(datos.fechaInicio, datos.fechaFin);
-  if (!resDias.valido) {
-    errores.push(resDias.mensaje);
-  }
-
-  return {
-    valido: errores.length === 0,
-    errores: errores
-  };
+// Exportación para entornos modularizados
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        calcularDiasIncapacidad,
+        validarBoletaUnica,
+        validarFormatoArchivo,
+        validarFormularioRegistro
+    };
 }
