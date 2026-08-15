@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistema de Gestión de Incapacidades</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/2.44.0/tabler-icons.min.css">
+  <link rel="stylesheet" href="../css/styles.css">
+</head>
+<body>
+
+  <!-- Verificación de sesión -->
+  <script>
+    (function () {
+      const authScript = document.createElement('script');
+      authScript.src = 'js/autenticacion.js';
+      authScript.onload = function () {
+        if (!autenticacion.tieneSesionActiva()) {
+          window.location.href = 'login.html';
+        }
+      };
+      document.head.appendChild(authScript);
+    })();
+  </script>
+
+  <!-- Navegación Superior -->
+  <header class="navbar">
+    <div class="navbar-container">
+      <div class="navbar-brand">
+        <h1>🏥 Gestión de Incapacidades</h1>
+      </div>
+      <nav class="navbar-menu">
+        <button id="btnNuevo" class="btn btn-primary">
+          <i class="ti ti-plus"></i> Nueva Incapacidad
+        </button>
+        <div class="navbar-user">
+          <span id="usuarioNombre" class="usuario-nombre">-</span>
+          <div class="usuario-dropdown">
+            <button class="btn-usuario-menu">
+              <i class="ti ti-user-circle"></i>
+            </button>
+            <div class="dropdown-menu">
+              <a href="#" onclick="mostrarPerfil(); return false;">
+                <i class="ti ti-user"></i> Mi Perfil
+              </a>
+              <a href="#" onclick="mostrarExportarDatos(); return false;">
+                <i class="ti ti-download"></i> Exportar Datos
+              </a>
+              <hr>
+              <a href="#" onclick="cerrarSesionUsuario(); return false;">
+                <i class="ti ti-logout"></i> Cerrar Sesión
+              </a>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Contenedor Principal -->
+  <main class="container-app">
+
+    <!-- VISTA: LISTA DE INCAPACIDADES -->
+    <div id="vistaLista" class="vista activa">
+      <!-- Dashboard -->
+      <section class="dashboard">
+        <h2>📊 Dashboard</h2>
+        <div class="estadisticas-grid">
+          <div class="stat-card">
+            <div class="stat-icon">📋</div>
+            <div class="stat-content">
+              <div class="stat-value" id="statTotal">0</div>
+              <div class="stat-label">Total de Registros</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">🟢</div>
+            <div class="stat-content">
+              <div class="stat-value" id="statActivas">0</div>
+              <div class="stat-label">Activas</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">✅</div>
+            <div class="stat-content">
+              <div class="stat-value" id="statFinalizadas">0</div>
+              <div class="stat-label">Finalizadas</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">⏱️</div>
+            <div class="stat-content">
+              <div class="stat-value" id="statProrroga">0</div>
+              <div class="stat-label">En Prórroga</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">📅</div>
+            <div class="stat-content">
+              <div class="stat-value" id="statDias">0</div>
+              <div class="stat-label">Días Acumulados</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Filtros -->
+      <section class="filtros">
+        <h3>🔍 Filtros</h3>
+        <div class="filtros-grid">
+          <div class="form-group">
+            <label for="inputBusqueda">Buscar por nombre o cédula</label>
+            <input type="text" id="inputBusqueda" class="input-search" placeholder="Ingresa nombre o cédula...">
+          </div>
+          <div class="form-group">
+            <label for="selectEstado">Estado</label>
+            <select id="selectEstado" class="input-select">
+              <option value="Todas">Todas</option>
+              <option value="Activa">Activas</option>
+              <option value="Finalizada">Finalizadas</option>
+              <option value="Prorroga">En Prórroga</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="selectDepartamento">Departamento</label>
+            <select id="selectDepartamento" class="input-select">
+              <option value="Todos">Todos</option>
+              <option value="Recursos Humanos">Recursos Humanos</option>
+              <option value="Operaciones">Operaciones</option>
+              <option value="Contabilidad">Contabilidad</option>
+              <option value="Ventas">Ventas</option>
+              <option value="IT">IT</option>
+              <option value="Finanzas">Finanzas</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>&nbsp;</label>
+            <button id="btnLimpiarFiltros" class="btn btn-secondary">
+              <i class="ti ti-x"></i> Limpiar Filtros
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tabla -->
+      <section class="tabla-section">
+        <h3>📋 Incapacidades Registradas</h3>
+        <div class="tabla-responsive">
+          <table class="tabla">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Cédula</th>
+                <th>Departamento</th>
+                <th>Tipo</th>
+                <th>Inicio</th>
+                <th>Días</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tablaIncapacidades">
+              <tr>
+                <td colspan="8" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                  Cargando datos...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <!-- VISTA: FORMULARIO -->
+    <div id="vistaFormulario" class="vista">
+      <div class="formulario-container">
+        <div class="formulario-header">
+          <h2 id="formTitle">Nueva Incapacidad</h2>
+          <button id="btnCancelar" class="btn btn-secondary">
+            <i class="ti ti-x"></i> Cancelar
+          </button>
+        </div>
+
+        <form id="formRegistro" class="formulario">
+          <fieldset class="formulario-section">
+            <legend>👤 Información Personal</legend>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="inputNombre">Nombre Completo *</label>
+                <input type="text" id="inputNombre" class="input-text" placeholder="Juan Pérez García" required>
+                <span class="error-message" id="error-inputNombre"></span>
+              </div>
+              <div class="form-group">
+                <label for="inputCedula">Cédula *</label>
+                <input type="text" id="inputCedula" class="input-text" placeholder="123-456789-0" required>
+                <span class="error-message" id="error-inputCedula"></span>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="selectDepartamentoForm">Departamento *</label>
+                <select id="selectDepartamentoForm" class="input-select" required>
+                  <option value="">-- Seleccionar --</option>
+                  <option value="Recursos Humanos">Recursos Humanos</option>
+                  <option value="Operaciones">Operaciones</option>
+                  <option value="Contabilidad">Contabilidad</option>
+                  <option value="Ventas">Ventas</option>
+                  <option value="IT">IT</option>
+                  <option value="Finanzas">Finanzas</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="selectTipo">Tipo de Incapacidad *</label>
+                <select id="selectTipo" class="input-select" required>
+                  <option value="">-- Seleccionar --</option>
+                  <option value="Médica">Médica</option>
+                  <option value="Maternidad">Maternidad</option>
+                  <option value="Paternidad">Paternidad</option>
+                  <option value="Accidente Laboral">Accidente Laboral</option>
+                  <option value="Enfermedad Profesional">Enfermedad Profesional</option>
+                </select>
+              </div>
+            </div>
+          </fieldset>
+
+          <fieldset class="formulario-section">
+            <legend>🏥 Información de la Incapacidad</legend>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="inputBoleta">Número de Boleta *</label>
+                <input type="text" id="inputBoleta" class="input-text" placeholder="BOL-2026-001" required>
+                <span class="error-message" id="error-inputBoleta"></span>
+              </div>
+              <div class="form-group">
+                <label for="inputDias">Días de Incapacidad</label>
+                <input type="number" id="inputDias" class="input-text" readonly value="0">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="inputFechaInicio">Fecha de Inicio *</label>
+                <input type="date" id="inputFechaInicio" class="input-text" required>
+                <span class="error-message" id="error-inputFechaInicio"></span>
+              </div>
+              <div class="form-group">
+                <label for="inputFechaFin">Fecha de Fin *</label>
+                <input type="date" id="inputFechaFin" class="input-text" required>
+                <span class="error-message" id="error-inputFechaFin"></span>
+              </div>
+            </div>
+          </fieldset>
+
+          <fieldset class="formulario-section">
+            <legend>📎 Documentación</legend>
+            <div class="form-group">
+              <label for="inputArchivo">Archivo Adjunto (PDF o Imagen) *</label>
+              <div class="input-file-wrapper">
+                <input type="file" id="inputArchivo" class="input-file" accept=".pdf,.jpg,.jpeg,.png,.gif">
+                <label for="inputArchivo" class="input-file-label">
+                  <i class="ti ti-upload"></i>
+                  Selecciona un archivo o arrastra aquí
+                </label>
+              </div>
+              <small style="color: var(--text-secondary);">Formatos: PDF, JPG, PNG, GIF (máx 1 MB)</small>
+              <div id="archivoActual"></div>
+              <span class="error-message" id="error-inputArchivo"></span>
+            </div>
+            <div class="form-group">
+              <label for="textObservaciones">Observaciones</label>
+              <textarea id="textObservaciones" class="input-text" rows="4" placeholder="Notas adicionales..."></textarea>
+            </div>
+          </fieldset>
+
+          <fieldset class="formulario-section" id="fieldsetEstado" style="display: none;">
+            <legend>⚙️ Estado del Registro</legend>
+            <div class="form-group">
+              <label for="selectEstadoForm">Estado</label>
+              <select id="selectEstadoForm" class="input-select">
+                <option value="Activa">Activa</option>
+                <option value="Finalizada">Finalizada</option>
+                <option value="Prorroga">Prorroga</option>
+              </select>
+            </div>
+          </fieldset>
+
+          <div class="formulario-acciones">
+            <button type="button" id="btnGuardar" class="btn btn-primary btn-lg">
+              <i class="ti ti-check"></i> Guardar Incapacidad
+            </button>
+            <button type="button" id="btnCancelarForm" class="btn btn-secondary btn-lg">
+              <i class="ti ti-x"></i> Cancelar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- VISTA: DETALLE -->
+    <div id="vistaDetalle" class="vista">
+      <div id="detalleContainer" class="detalle-container"></div>
+    </div>
+
+    <!-- VISTA: PRÓRROGA -->
+    <div id="vistaProrroag" class="vista">
+      <div class="prorroga-container">
+        <div class="prorroga-header">
+          <h2 id="prorrogaTitle">Solicitar Prórroga</h2>
+          <button class="btn btn-secondary" onclick="cargarListaIncapacidades()">← Volver</button>
+        </div>
+        <div class="prorroga-form">
+          <div class="form-group">
+            <label>Trabajador</label>
+            <div class="info-box" id="prorrogaNombreActual">-</div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Fecha de fin actual</label>
+              <input type="date" id="prorrogaFechaFinActual" class="input-text" readonly>
+            </div>
+            <div class="form-group">
+              <label>Nueva fecha de fin *</label>
+              <input type="date" id="prorrogaFechaFinNueva" class="input-text" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="prorrogaMotivo">Motivo de la prórroga *</label>
+            <textarea id="prorrogaMotivo" class="input-text" rows="4" placeholder="Explica el motivo..." required></textarea>
+          </div>
+          <div class="prorroga-acciones">
+            <button id="btnGuardarProrroga" class="btn btn-primary btn-lg">
+              <i class="ti ti-check"></i> Registrar Prórroga
+            </button>
+            <button class="btn btn-secondary btn-lg" onclick="cargarListaIncapacidades()">
+              <i class="ti ti-x"></i> Cancelar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Modal de Confirmación -->
+  <div id="modalConfirmacion" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>⚠️ Confirmar acción</h3>
+      </div>
+      <div class="modal-body">
+        <p id="confirmMensaje">¿Estás seguro?</p>
+      </div>
+      <div class="modal-footer">
+        <button id="btnConfirmarEliminar" class="btn btn-danger">
+          <i class="ti ti-trash"></i> Eliminar
+        </button>
+        <button id="btnCancelarEliminar" class="btn btn-secondary">
+          <i class="ti ti-x"></i> Cancelar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/config.js"></script>
+  <script src="js/datos.js"></script>
+  <script src="js/validaciones.js"></script>
+  <script src="js/utilidades.js"></script>
+  <script src="js/autenticacion.js"></script>
+  <script src="js/reportes.js"></script>
+  <script src="js/app.js"></script>
+
+  <script>
+    // Dropdown de usuario
+    document.addEventListener('click', (e) => {
+      const btnUsuario = e.target.closest('.btn-usuario-menu');
+      const dropdownMenu = document.querySelector('.dropdown-menu');
+
+      if (btnUsuario) {
+        e.stopPropagation();
+        if (dropdownMenu) dropdownMenu.classList.toggle('show');
+      } else if (!e.target.closest('.usuario-dropdown')) {
+        if (dropdownMenu) dropdownMenu.classList.remove('show');
+      }
+    });
+  </script>
+</body>
+</html>

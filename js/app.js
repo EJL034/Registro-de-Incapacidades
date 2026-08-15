@@ -22,20 +22,46 @@ const appState = {
 document.addEventListener('DOMContentLoaded', () => {
   console.log('🚀 Iniciando aplicación...');
   
-  // Cargar información del usuario
   actualizarInfoUsuario();
-  
-  // Configurar event listeners
   setupEventListeners();
-  
-  // Cargar datos iniciales
   cargarListaIncapacidades();
-  
-  // Actualizar estadísticas
   actualizarEstadisticas();
+  aplicarPermisos();
   
   console.log('✅ Aplicación lista');
 });
+
+/**
+ * Aplica los permisos según el rol del usuario
+ */
+function aplicarPermisos() {
+  const puedeEliminar = autenticacion.tienePermiso('eliminar');
+  const puedeExportar = autenticacion.tienePermiso('exportar');
+  const puedeCrear = autenticacion.tienePermiso('crear');
+  const puedeActualizar = autenticacion.tienePermiso('actualizar');
+
+  // Botón Nueva Incapacidad
+  const btnNuevo = document.getElementById('btnNuevo');
+  if (btnNuevo) {
+    btnNuevo.style.display = puedeCrear ? 'inline-flex' : 'none';
+  }
+
+  // Botones de eliminar
+  document.querySelectorAll('.btn-eliminar').forEach(btn => {
+    btn.style.display = puedeEliminar ? 'inline-flex' : 'none';
+  });
+
+  // Botones de editar
+  document.querySelectorAll('.btn-editar').forEach(btn => {
+    btn.style.display = puedeActualizar ? 'inline-flex' : 'none';
+  });
+
+  // Opción de exportar en el menú
+  const linkExportar = document.querySelector('a[onclick*="mostrarExportarDatos"]');
+  if (linkExportar) {
+    linkExportar.style.display = puedeExportar ? 'flex' : 'none';
+  }
+}
 
 /**
  * Actualiza la información del usuario en la navbar
@@ -56,10 +82,10 @@ function actualizarInfoUsuario() {
 function cerrarSesionUsuario() {
   if (confirm('¿Deseas cerrar sesión?')) {
     autenticacion.cerrarSesion();
-    mostrarNotificacion('✅ Sesión cerrada', 'success');
+    mostrarNotificacion('✅ Sesión cerrada correctamente', 'success');
     setTimeout(() => {
       window.location.href = 'login.html';
-    }, 1000);
+    }, 800);
   }
 }
 
@@ -69,28 +95,42 @@ function cerrarSesionUsuario() {
 function mostrarPerfil() {
   const usuario = autenticacion.obtenerUsuarioActual();
   if (!usuario) return;
-  
-  const modal = `
-    <div style="background: white; padding: 30px; border-radius: 12px; max-width: 400px; margin: 50px auto;">
-      <h2>👤 Mi Perfil</h2>
-      <div style="margin: 20px 0;">
-        <p><strong>Nombre:</strong> ${usuario.nombre}</p>
-        <p><strong>Email:</strong> ${usuario.email}</p>
-        <p><strong>Rol:</strong> <span style="background: #667eea; color: white; padding: 4px 12px; border-radius: 4px;">${usuario.rol}</span></p>
-      </div>
+
+  const modal = document.getElementById('modalConfirmacion');
+  const contenido = `
+    <div class="modal-header">
+      <h3>👤 Mi Perfil</h3>
+    </div>
+    <div class="modal-body">
+      <p><strong>Nombre:</strong> ${usuario.nombre}</p>
+      <p><strong>Email:</strong> ${usuario.email}</p>
+      <p><strong>Rol:</strong> 
+        <span style="background: #667eea; color: white; padding: 3px 10px; border-radius: 12px; font-size: 0.85rem;">
+          ${usuario.rol === 'admin' ? 'Administrador' : 'Usuario'}
+        </span>
+      </p>
+      <p style="margin-top: 12px; color: #666; font-size: 0.9rem;">
+        <strong>Último acceso:</strong> ${new Date(usuario.fechaLogin).toLocaleString('es-CR')}
+      </p>
+    </div>
+    <div class="modal-footer">
       <button class="btn btn-secondary" onclick="cerrarModal()">Cerrar</button>
     </div>
   `;
-  
-  const modalDiv = document.getElementById('modalConfirmacion');
-  modalDiv.style.display = 'block';
-  document.querySelector('.modal-content').innerHTML = modal;
+
+  document.querySelector('.modal-content').innerHTML = contenido;
+  modal.style.display = 'block';
 }
 
 /**
  * Muestra opción de exportar datos
  */
 function mostrarExportarDatos() {
+  if (!autenticacion.tienePermiso('exportar')) {
+    mostrarNotificacion('⛔ No tienes permiso para exportar datos', 'error');
+    return;
+  }
+
   const opciones = `
     <div style="background: white; padding: 30px; border-radius: 12px; max-width: 400px; margin: 50px auto;">
       <h2>📤 Exportar Datos</h2>
@@ -175,12 +215,12 @@ function setupEventListeners() {
 function cargarListaIncapacidades() {
   appState.currentView = 'lista';
   mostrarVista('vistaLista');
-  
+
   const incapacidades = obtenerIncapacidades();
   const container = document.getElementById('tablaIncapacidades');
-  
+
   if (!container) return;
-  
+
   if (incapacidades.length === 0) {
     container.innerHTML = `
       <tr>
@@ -194,41 +234,42 @@ function cargarListaIncapacidades() {
         </td>
       </tr>
     `;
-    return;
-  }
-  
-  // Renderizar tabla
-  container.innerHTML = incapacidades.map(incapacidad => `
-    <tr class="fila-tabla estado-${incapacidad.estado.toLowerCase().replace(' ', '-')}">
-      <td><strong>${incapacidad.nombre}</strong></td>
-      <td>${incapacidad.cedula}</td>
-      <td>${incapacidad.departamento}</td>
-      <td><span class="badge badge-${incapacidad.tipo.toLowerCase().replace(' ', '-')}">${incapacidad.tipo}</span></td>
-      <td>${formatearFecha(incapacidad.fechaInicio)}</td>
-      <td><strong>${incapacidad.diasIncapacidad}</strong></td>
-      <td><span class="badge badge-estado-${incapacidad.estado.toLowerCase()}">${incapacidad.estado}</span></td>
-      <td class="columna-acciones">
-        <div class="botones-grupo">
-          <button class="btn btn-sm btn-info btn-ver-detalle" data-id="${incapacidad.id}" title="Ver detalles">
-            <i class="ti ti-eye"></i>
-          </button>
-          <button class="btn btn-sm btn-warning btn-editar" data-id="${incapacidad.id}" title="Editar">
-            <i class="ti ti-edit"></i>
-          </button>
-          ${incapacidad.estado === 'Activa' ? `
-            <button class="btn btn-sm btn-secondary btn-prorroga" data-id="${incapacidad.id}" title="Solicitar prórroga">
-              <i class="ti ti-clock-plus"></i>
+  } else {
+    // Aquí va el código que renderiza la tabla con los registros
+    container.innerHTML = incapacidades.map(incapacidad => `
+      <tr class="fila-tabla estado-${incapacidad.estado.toLowerCase().replace(' ', '-')}">
+        <td><strong>${incapacidad.nombre}</strong></td>
+        <td>${incapacidad.cedula}</td>
+        <td>${incapacidad.departamento}</td>
+        <td><span class="badge badge-${incapacidad.tipo.toLowerCase().replace(' ', '-')}">${incapacidad.tipo}</span></td>
+        <td>${formatearFecha(incapacidad.fechaInicio)}</td>
+        <td><strong>${incapacidad.diasIncapacidad}</strong></td>
+        <td><span class="badge badge-estado-${incapacidad.estado.toLowerCase()}">${incapacidad.estado}</span></td>
+        <td class="columna-acciones">
+          <div class="botones-grupo">
+            <button class="btn btn-sm btn-info btn-ver-detalle" data-id="${incapacidad.id}" title="Ver detalles">
+              👁️
             </button>
-          ` : ''}
-          <button class="btn btn-sm btn-danger btn-eliminar" data-id="${incapacidad.id}" title="Eliminar">
-            <i class="ti ti-trash"></i>
-          </button>
-        </div>
-      </td>
-    </tr>
-  `).join('');
-}
+            <button class="btn btn-sm btn-warning btn-editar" data-id="${incapacidad.id}" title="Editar">
+              ✏️
+            </button>
+            ${incapacidad.estado === 'Activa' ? `
+              <button class="btn btn-sm btn-secondary btn-prorroga" data-id="${incapacidad.id}" title="Solicitar prórroga">
+                ⏱️
+              </button>
+            ` : ''}
+            <button class="btn btn-sm btn-danger btn-eliminar" data-id="${incapacidad.id}" title="Eliminar">
+              🗑️
+            </button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  }
 
+  // Esta línea debe ir al final, fuera del if/else
+  aplicarPermisos();
+}
 /**
  * Aplica filtros a la tabla
  */
@@ -714,6 +755,12 @@ function guardarProrroga(id) {
  * Solicita confirmación y elimina un registro
  */
 function confirmarEliminar(id) {
+  // Verificar permiso
+  if (!autenticacion.tienePermiso('eliminar')) {
+    mostrarNotificacion('⛔ No tienes permiso para eliminar registros', 'error');
+    return;
+  }
+
   const incapacidad = obtenerIncapacidadPorId(id);
   if (!incapacidad) return;
   
@@ -727,13 +774,13 @@ function confirmarEliminar(id) {
       cerrarModal();
       cargarListaIncapacidades();
       actualizarEstadisticas();
+      aplicarPermisos();
     } else {
       mostrarNotificacion('❌ Error al eliminar', 'error');
     }
   };
   
   document.getElementById('btnCancelarEliminar').onclick = cerrarModal;
-  
   modal.style.display = 'block';
 }
 
