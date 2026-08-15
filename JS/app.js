@@ -224,10 +224,9 @@ function cargarListaIncapacidades() {
   if (incapacidades.length === 0) {
     container.innerHTML = `
       <tr>
-        <td colspan="8" style="text-align: center; padding: 40px;">
-          <p style="color: var(--text-secondary); font-size: 1.1em;">
-            📋 No hay incapacidades registradas
-          </p>
+        <td colspan="8" style="text-align: center; padding: 40px; color: #718096;">
+          📋 No hay incapacidades registradas
+          <br><br>
           <button class="btn btn-primary" onclick="mostrarFormulario()">
             + Nueva Incapacidad
           </button>
@@ -235,30 +234,49 @@ function cargarListaIncapacidades() {
       </tr>
     `;
   } else {
-    // Aquí va el código que renderiza la tabla con los registros
-    container.innerHTML = incapacidades.map(incapacidad => `
-      <tr class="fila-tabla estado-${incapacidad.estado.toLowerCase().replace(' ', '-')}">
-        <td><strong>${incapacidad.nombre}</strong></td>
-        <td>${incapacidad.cedula}</td>
-        <td>${incapacidad.departamento}</td>
-        <td><span class="badge badge-${incapacidad.tipo.toLowerCase().replace(' ', '-')}">${incapacidad.tipo}</span></td>
+    container.innerHTML = incapacidades.map((incapacidad, index) => `
+      <tr>
+        <td>${index + 1}</td>
+        <td>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div class="avatar" style="width: 32px; height: 32px; font-size: 0.8rem; background: #63b3ed;">
+              ${incapacidad.nombre ? incapacidad.nombre.charAt(0).toUpperCase() : '?'}
+            </div>
+            <div>
+              <strong>${incapacidad.nombre || '—'}</strong>
+              <div style="font-size: 0.8rem; color: #718096;">${incapacidad.cedula || ''}</div>
+            </div>
+          </div>
+        </td>
+        <td>${incapacidad.tipo || '—'}</td>
         <td>${formatearFecha(incapacidad.fechaInicio)}</td>
-        <td><strong>${incapacidad.diasIncapacidad}</strong></td>
-        <td><span class="badge badge-estado-${incapacidad.estado.toLowerCase()}">${incapacidad.estado}</span></td>
-        <td class="columna-acciones">
+        <td>${formatearFecha(incapacidad.fechaFin)}</td>
+        <td><strong>${incapacidad.diasIncapacidad || 0}</strong></td>
+        <td>
+          <span class="badge badge-estado-${(incapacidad.estado || '').toLowerCase().replace(' ', '-')}">
+            ${incapacidad.estado || '—'}
+          </span>
+        </td>
+        <td>
           <div class="botones-grupo">
-            <button class="btn btn-sm btn-info btn-ver-detalle" data-id="${incapacidad.id}" title="Ver detalles">
+            <button class="btn btn-sm btn-info" onclick="verDetalle('${incapacidad.id}')" title="Ver detalle">
               👁️
             </button>
-            <button class="btn btn-sm btn-warning btn-editar" data-id="${incapacidad.id}" title="Editar">
+            <button class="btn btn-sm btn-warning" onclick="editarIncapacidad('${incapacidad.id}')" title="Editar">
               ✏️
             </button>
             ${incapacidad.estado === 'Activa' ? `
-              <button class="btn btn-sm btn-secondary btn-prorroga" data-id="${incapacidad.id}" title="Solicitar prórroga">
-                ⏱️
+              <button class="btn btn-sm btn-secondary" onclick="Seguimiento.abrirSeguimiento('${incapacidad.id}')" title="Seguimiento">
+                📌
+              </button>
+              <button class="btn btn-sm btn-success" onclick="Reincorporacion.abrirReincorporacion('${incapacidad.id}')" title="Reincorporación">
+                🔄
               </button>
             ` : ''}
-            <button class="btn btn-sm btn-danger btn-eliminar" data-id="${incapacidad.id}" title="Eliminar">
+            <button class="btn btn-sm btn-secondary" onclick="Comprobantes.mostrarOpcionesComprobante('${incapacidad.id}')" title="Comprobante">
+              📄
+            </button>
+            <button class="btn btn-sm btn-danger btn-eliminar" onclick="confirmarEliminar('${incapacidad.id}')" title="Eliminar">
               🗑️
             </button>
           </div>
@@ -267,9 +285,15 @@ function cargarListaIncapacidades() {
     `).join('');
   }
 
-  // Esta línea debe ir al final, fuera del if/else
-  aplicarPermisos();
+  // Aplicar permisos y actualizar dashboard
+  if (typeof aplicarPermisos === 'function') aplicarPermisos();
+  if (typeof Dashboard !== 'undefined' && Dashboard.actualizarDashboard) {
+    Dashboard.actualizarDashboard();
+  } else if (typeof actualizarEstadisticas === 'function') {
+    actualizarEstadisticas();
+  }
 }
+
 /**
  * Aplica filtros a la tabla
  */
